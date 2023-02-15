@@ -2,6 +2,8 @@ package h2d;
 
 import h2d.RenderContext;
 import h2d.impl.BatchDrawState;
+import hxmath.math.Matrix2x2;
+import hxmath.math.Vector2;
 
 private class ElementsIterator {
 	var e : BatchElement;
@@ -96,6 +98,10 @@ class BatchElement {
 
 	var prev : BatchElement;
 	var next : BatchElement;
+	
+	public var skewX : Float;
+	public var skewY : Float;
+	public var mat : Array<Float> = [1,0,0,1];
 
 	/**
 		Create a new BatchElement instance with provided Tile.
@@ -189,7 +195,7 @@ class BasicElement extends BatchElement {
 	ideally limiting to only one texture.
 **/
 class SpriteBatch extends Drawable {
-
+	
 	/**
 		The Tile used as a base Texture to draw contents with.
 	**/
@@ -200,6 +206,7 @@ class SpriteBatch extends Drawable {
 		Makes use of `BatchElement.scaleX`, `BatchElement.scaleY` and `BatchElement.rotation`.
 	**/
 	public var hasRotationScale : Bool = false;
+	public var hasSkew : Bool = false;
 	/**
 		Enables usage of `update` method in SpriteBatch elements.
 	**/
@@ -220,6 +227,7 @@ class SpriteBatch extends Drawable {
 		super(parent);
 		tile = t;
 		state = new BatchDrawState();
+		
 	}
 
 	/**
@@ -293,6 +301,7 @@ class SpriteBatch extends Drawable {
 	}
 
 	override function getBoundsRec( relativeTo, out, forSize ) {
+		
 		super.getBoundsRec(relativeTo, out, forSize);
 		var e = first;
 		while( e != null ) {
@@ -328,6 +337,7 @@ class SpriteBatch extends Drawable {
 	}
 
 	function flush() {
+		
 		if( first == null ) {
 			return;
 		}
@@ -350,45 +360,119 @@ class SpriteBatch extends Drawable {
 
 			tmp.grow(pos + 8 * 4);
 
-			if( hasRotationScale ) {
-				var ca = Math.cos(e.rotation), sa = Math.sin(e.rotation);
-				var hx = t.width, hy = t.height;
-				var px = t.dx * e.scaleX, py = t.dy * e.scaleY;
-				tmp[pos++] = px * ca - py * sa + e.x;
-				tmp[pos++] = py * ca + px * sa + e.y;
-				tmp[pos++] = t.u;
-				tmp[pos++] = t.v;
-				tmp[pos++] = e.r;
-				tmp[pos++] = e.g;
-				tmp[pos++] = e.b;
-				tmp[pos++] = e.a;
-				var px = (t.dx + hx) * e.scaleX, py = t.dy * e.scaleY;
-				tmp[pos++] = px * ca - py * sa + e.x;
-				tmp[pos++] = py * ca + px * sa + e.y;
-				tmp[pos++] = t.u2;
-				tmp[pos++] = t.v;
-				tmp[pos++] = e.r;
-				tmp[pos++] = e.g;
-				tmp[pos++] = e.b;
-				tmp[pos++] = e.a;
-				var px = t.dx * e.scaleX, py = (t.dy + hy) * e.scaleY;
-				tmp[pos++] = px * ca - py * sa + e.x;
-				tmp[pos++] = py * ca + px * sa + e.y;
-				tmp[pos++] = t.u;
-				tmp[pos++] = t.v2;
-				tmp[pos++] = e.r;
-				tmp[pos++] = e.g;
-				tmp[pos++] = e.b;
-				tmp[pos++] = e.a;
-				var px = (t.dx + hx) * e.scaleX, py = (t.dy + hy) * e.scaleY;
-				tmp[pos++] = px * ca - py * sa + e.x;
-				tmp[pos++] = py * ca + px * sa + e.y;
-				tmp[pos++] = t.u2;
-				tmp[pos++] = t.v2;
-				tmp[pos++] = e.r;
-				tmp[pos++] = e.g;
-				tmp[pos++] = e.b;
-				tmp[pos++] = e.a;
+			if ( hasRotationScale ) {
+				if (hasSkew) {
+					var ca = Math.cos(e.rotation), sa = Math.sin(e.rotation);
+					var hx = t.width, hy = t.height;
+					var matrix:Matrix2x2 = new Matrix2x2(e.mat[0], e.mat[1], e.mat[2], e.mat[3]);
+					
+					//Top Left
+					var px = t.dx * e.scaleX, py = t.dy * e.scaleY;
+					var point:Vector2 = new Vector2(px, py);
+					point = Matrix2x2.multiplyVector(matrix, point);
+					
+					tmp[pos++] = point.x+e.x;
+					tmp[pos++] = point.y+e.y;
+					tmp[pos++] = t.u;
+					tmp[pos++] = t.v;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Top Right
+					var px = (t.dx + hx) * e.scaleX, py = t.dy * e.scaleY;
+					var point:Vector2 = new Vector2(px, py);
+					point = Matrix2x2.multiplyVector(matrix, point);
+					
+					tmp[pos++] = point.x+e.x;
+					tmp[pos++] = point.y+e.y;
+					tmp[pos++] = t.u2;
+					tmp[pos++] = t.v;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Bottom Left
+					var px = t.dx * e.scaleX, py = (t.dy + hy) * e.scaleY;
+					var point:Vector2 = new Vector2(px, py);
+					point = Matrix2x2.multiplyVector(matrix, point);
+					
+					tmp[pos++] = point.x+e.x;
+					tmp[pos++] = point.y+e.y;
+					tmp[pos++] = t.u;
+					tmp[pos++] = t.v2;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Bottom Right
+					var px = (t.dx + hx) * e.scaleX, py = (t.dy + hy) * e.scaleY;
+					var point:Vector2 = new Vector2(px, py);
+					point = Matrix2x2.multiplyVector(matrix, point);
+					
+					tmp[pos++] = point.x+e.x;
+					tmp[pos++] = point.y+e.y;
+					tmp[pos++] = t.u2;
+					tmp[pos++] = t.v2;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+				} else {
+					
+					var ca = Math.cos(e.rotation), sa = Math.sin(e.rotation);
+					var hx = t.width, hy = t.height;
+					
+					//Top Left
+					var px = t.dx * e.scaleX, py = t.dy * e.scaleY;
+					tmp[pos++] = (px * ca - py * sa + e.x);
+					tmp[pos++] = py * ca + px * sa + e.y;
+					tmp[pos++] = t.u;
+					tmp[pos++] = t.v;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Top Right
+					var px = (t.dx + hx) * e.scaleX, py = t.dy * e.scaleY;
+					tmp[pos++] = (px * ca - py * sa + e.x);
+					tmp[pos++] = (py * ca + px * sa + e.y);
+					tmp[pos++] = t.u2;
+					tmp[pos++] = t.v;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Bottom Left
+					var px = t.dx * e.scaleX, py = (t.dy + hy) * e.scaleY;
+					tmp[pos++] = px * ca - py * sa + e.x;
+					tmp[pos++] = py * ca + px * sa + e.y;
+					tmp[pos++] = t.u;
+					tmp[pos++] = t.v2;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+					
+					//Bottom Right
+					var px = (t.dx + hx) * e.scaleX, py = (t.dy + hy) * e.scaleY;
+					tmp[pos++] = px * ca - py * sa + e.x;
+					tmp[pos++] = py * ca + px * sa + e.y;
+					tmp[pos++] = t.u2;
+					tmp[pos++] = t.v2;
+					tmp[pos++] = e.r;
+					tmp[pos++] = e.g;
+					tmp[pos++] = e.b;
+					tmp[pos++] = e.a;
+				}
+				
+				
 			} else {
 				var sx = e.x + t.dx;
 				var sy = e.y + t.dy;
@@ -427,7 +511,7 @@ class SpriteBatch extends Drawable {
 			}
 			e = e.next;
 		}
-		bufferVertices = pos>>3;
+		bufferVertices = pos >> 3;
 		if( buffer != null && !buffer.isDisposed() ) {
 			if( buffer.vertices >= bufferVertices ){
 				buffer.uploadVector(tmpBuf, 0, bufferVertices);
